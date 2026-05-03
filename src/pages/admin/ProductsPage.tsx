@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -124,7 +124,13 @@ export default function AdminProductsPage() {
     },
   })
 
-  const form = useForm<FormValues>({ resolver: zodResolver(schema), mode: 'onChange' })
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+    defaultValues: {
+      categoryId: '',
+    },
+  })
 
   const categoryOptions = useMemo(
     () => [{ id: 'all', name: 'All categories' }, ...(categories.data?.data ?? []).map((c) => ({ id: c.categoryId, name: c.categoryName }))],
@@ -177,16 +183,20 @@ export default function AdminProductsPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Price</Label>
-                      <Input type="number" step="0.01" {...form.register('price', { valueAsNumber: true })} />
+                      <Input type="number" step="0.01" min="0.01" {...form.register('price', { valueAsNumber: true })} />
                     </div>
                     <div className="space-y-2">
                       <Label>Stock Qty</Label>
-                      <Input type="number" {...form.register('stockQty', { valueAsNumber: true })} />
+                      <Input type="number" min="0" {...form.register('stockQty', { valueAsNumber: true })} />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Category</Label>
-                    <Select onValueChange={(v) => form.setValue('categoryId', v, { shouldValidate: true })}>
+                    <input type="hidden" {...form.register('categoryId')} />
+                    <Select
+                      value={form.watch('categoryId') || undefined}
+                      onValueChange={(v) => form.setValue('categoryId', v, { shouldValidate: true, shouldTouch: true })}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
@@ -198,6 +208,9 @@ export default function AdminProductsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {form.formState.errors.categoryId ? (
+                      <p className="text-sm text-destructive">{form.formState.errors.categoryId.message}</p>
+                    ) : null}
                   </div>
                   <DialogFooter>
                     <Button type="submit" disabled={!form.formState.isValid || createM.isPending}>
@@ -362,18 +375,24 @@ function EditProductForm({
       </div>
       <div className="space-y-2">
         <Label>Category</Label>
-        <Select value={form.watch('categoryId')} onValueChange={(v) => form.setValue('categoryId', v, { shouldValidate: true })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((c) => (
-              <SelectItem key={c.categoryId} value={c.categoryId}>
-                {c.categoryName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Controller
+          control={form.control}
+          name="categoryId"
+          render={({ field }) => (
+            <Select value={field.value || undefined} onValueChange={(v) => field.onChange(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.categoryId} value={c.categoryId}>
+                    {c.categoryName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>

@@ -563,11 +563,28 @@ def get_product(id):
 
 @app.post("/api/products")
 def create_product():
-    data = request.get_json()
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    price = data.get('price')
+    stockQty = data.get('stockQty')
+    category_id = data.get('categoryId')
+
+    if not name or price is None or stockQty is None or category_id is None or str(category_id).strip() == '':
+        return jsonify({"error": "Missing required product fields"}), 400
+
+    try:
+        price = float(price)
+        stockQty = int(stockQty)
+    except Exception:
+        return jsonify({"error": "Invalid price or stockQty"}), 400
+
+    if price <= 0 or stockQty < 0:
+        return jsonify({"error": "Invalid price or stockQty"}), 400
+
     with db_connection() as conn:
         cursor = conn.cursor()
         query = "INSERT INTO products (name, price, stock, category_id) VALUES (%s, %s, %s, %s)"
-        execute_query(cursor, query, (data['name'], data['price'], data['stockQty'], data.get('categoryId')))
+        execute_query(cursor, query, (name, price, stockQty, category_id))
         conn.commit()
         product_id = cursor.lastrowid
         # Log audit (always log, with or without auth)
@@ -589,17 +606,35 @@ def update_product(id):
         args = []
         
         if 'name' in data:
+            name = (data.get('name') or '').strip()
+            if not name:
+                return jsonify({"error": "Product name cannot be empty"}), 400
             updates.append("name=%s")
-            args.append(data['name'])
+            args.append(name)
         if 'price' in data:
+            try:
+                price = float(data['price'])
+            except Exception:
+                return jsonify({"error": "Invalid price"}), 400
+            if price <= 0:
+                return jsonify({"error": "Price must be greater than zero"}), 400
             updates.append("price=%s")
-            args.append(data['price'])
+            args.append(price)
         if 'stockQty' in data:
+            try:
+                stockQty = int(data['stockQty'])
+            except Exception:
+                return jsonify({"error": "Invalid stock quantity"}), 400
+            if stockQty < 0:
+                return jsonify({"error": "Stock quantity cannot be negative"}), 400
             updates.append("stock=%s")
-            args.append(data['stockQty'])
+            args.append(stockQty)
         if 'categoryId' in data:
+            category_id = data.get('categoryId')
+            if category_id == '':
+                category_id = None
             updates.append("category_id=%s")
-            args.append(data['categoryId'])
+            args.append(category_id)
         
         if not updates:
             return jsonify({"error": "No fields to update"}), 400
