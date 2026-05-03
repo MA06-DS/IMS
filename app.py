@@ -314,6 +314,25 @@ def get_auth_payload():
         return None
 
 
+def log_admin_action(admin_username, product_id, action):
+    """Silently log an admin action with Pakistan timezone (UTC+5)."""
+    if not admin_username:
+        return
+    try:
+        with db_connection() as conn:
+            cursor = conn.cursor()
+            # Get current time in Pakistan timezone (UTC+5)
+            pk_tz = datetime.timezone(datetime.timedelta(hours=5))
+            pk_time = datetime.datetime.now(pk_tz).strftime('%Y-%m-%d %H:%M:%S')
+            # Insert with Pakistan timezone timestamp
+            query = "INSERT INTO admin_products (admin_username, product_id, action, action_datetime) VALUES (%s, %s, %s, %s)"
+            execute_query(cursor, query, (admin_username, product_id, action, pk_time))
+            conn.commit()
+    except Exception as e:
+        print(f"[AUDIT LOG] Error: {e}")
+        pass  # Silently fail - never disrupt the main operation
+
+
 def execute_query(cursor, query, args=None):
     if DB_TYPE == "sqlite":
         # Convert %s to ? for SQLite
@@ -550,7 +569,13 @@ def create_product():
         query = "INSERT INTO products (name, price, stock, category_id) VALUES (%s, %s, %s, %s)"
         execute_query(cursor, query, (data['name'], data['price'], data['stockQty'], data.get('categoryId')))
         conn.commit()
-        return jsonify({"ok": True, "id": cursor.lastrowid})
+        product_id = cursor.lastrowid
+        # Log audit (always log, with or without auth)
+        auth = get_auth_payload()
+        admin_username = auth.get('username') if auth else 'system_admin'
+        print(f"[AUDIT] Logging action 'created' for product {product_id} by {admin_username}")
+        log_admin_action(admin_username, product_id, 'created')
+        return jsonify({"ok": True, "id": product_id})
 
 @app.put("/api/products/<id>")
 def update_product(id):
@@ -584,6 +609,14 @@ def update_product(id):
         execute_query(cursor, query, args)
         conn.commit()
         
+        # Log audit (always log, with or without auth)
+        auth = get_auth_payload()
+        admin_username = auth.get('username') if auth else 'system_admin'
+        is_restock = len(data) == 1 and 'stockQty' in data
+        action = 'restocked' if is_restock else 'updated'
+        print(f"[AUDIT] Logging action '{action}' for product {id} by {admin_username}")
+        log_admin_action(admin_username, int(id), action)
+        
         # Fetch and return updated product
         query_fetch = "SELECT p.*, c.name as categoryName FROM products p LEFT JOIN categories c ON p.category_id = c.category_id WHERE p.product_id = %s"
         execute_query(cursor, query_fetch, (id,))
@@ -608,6 +641,11 @@ def delete_product(id):
         query = "DELETE FROM products WHERE product_id = %s"
         execute_query(cursor, query, (id,))
         conn.commit()
+        # Log audit (always log, with or without auth)
+        auth = get_auth_payload()
+        admin_username = auth.get('username') if auth else 'system_admin'
+        print(f"[AUDIT] Logging action 'deleted' for product {id} by {admin_username}")
+        log_admin_action(admin_username, int(id), 'deleted')
         return jsonify({"ok": True})
 
 # --- Category Routes ---
