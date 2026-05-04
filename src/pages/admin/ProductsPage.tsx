@@ -22,6 +22,7 @@ import { STOCK_THRESHOLDS } from '@/utils/constants'
 import { formatCurrency } from '@/utils/format'
 import { useDebounce } from '@/hooks/useDebounce'
 import { getErrorMessage } from '@/utils/errors'
+import { useLowStockThreshold } from '@/utils/settings'
 
 const schema = z.object({
   name: z.string().min(2),
@@ -30,13 +31,6 @@ const schema = z.object({
   categoryId: z.string().min(1),
 })
 type FormValues = z.infer<typeof schema>
-
-function stockBadge(stockQty: number) {
-  if (stockQty === 0) return <Badge variant="destructive">Out</Badge>
-  if (stockQty < STOCK_THRESHOLDS.critical) return <Badge variant="destructive">Critical</Badge>
-  if (stockQty < STOCK_THRESHOLDS.low) return <Badge variant="warning">Low</Badge>
-  return <Badge variant="success">Healthy</Badge>
-}
 
 export default function AdminProductsPage() {
   const qc = useQueryClient()
@@ -50,6 +44,7 @@ export default function AdminProductsPage() {
 
   const [edit, setEdit] = useState<Product | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const lowStockThreshold = useLowStockThreshold()
 
   const categories = useQuery({
     queryKey: ['categories', { page: 1, limit: 100 }],
@@ -133,7 +128,7 @@ export default function AdminProductsPage() {
   })
 
   const categoryOptions = useMemo(
-    () => [{ id: 'all', name: 'All categories' }, ...(categories.data?.data ?? []).map((c) => ({ id: c.categoryId, name: c.categoryName }))],
+    () => [{ id: 'all', name: 'All categories' }, ...(categories.data?.data ?? []).map((c) => ({ id: String(c.categoryId), name: c.categoryName }))],
     [categories.data],
   )
 
@@ -192,22 +187,24 @@ export default function AdminProductsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Category</Label>
-                    <input type="hidden" {...form.register('categoryId')} />
-                    <Select
-                      value={form.watch('categoryId') || undefined}
-                      onValueChange={(v) => form.setValue('categoryId', v, { shouldValidate: true, shouldTouch: true })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(categories.data?.data ?? []).map((c) => (
-                          <SelectItem key={c.categoryId} value={c.categoryId}>
-                            {c.categoryName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Controller
+                      control={form.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(categories.data?.data ?? []).map((c) => (
+                              <SelectItem key={c.categoryId} value={String(c.categoryId)}>
+                                {c.categoryName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                     {form.formState.errors.categoryId ? (
                       <p className="text-sm text-destructive">{form.formState.errors.categoryId.message}</p>
                     ) : null}
@@ -285,7 +282,7 @@ export default function AdminProductsPage() {
           { key: 'name', header: 'Name', cell: (r) => <button className="font-medium hover:underline" onClick={() => setEdit(r)}>{r.name}</button> },
           { key: 'category', header: 'Category', cell: (r) => <span className="text-muted">{r.category?.categoryName ?? r.categoryId}</span> },
           { key: 'price', header: 'Price', cell: (r) => <span className="font-medium">{formatCurrency(r.price)}</span> },
-          { key: 'stock', header: 'Stock', cell: (r) => <div className="flex items-center gap-2">{stockBadge(r.stockQty)}<span className="text-muted">{r.stockQty}</span></div> },
+          { key: 'stock', header: 'Stock', cell: (r) => <div className="flex items-center gap-2">{stockBadge(r.stockQty, lowStockThreshold)}<span className="text-muted">{r.stockQty}</span></div> },
           {
             key: 'actions',
             header: 'Actions',
@@ -314,7 +311,7 @@ export default function AdminProductsPage() {
           {edit ? (
             <EditProductForm
               product={edit}
-              categories={categories.data?.data ?? []}
+              categories={(categories.data?.data ?? []).map((c) => ({ categoryId: String(c.categoryId), categoryName: c.categoryName }))}
               onCancel={() => setEdit(null)}
               onSave={(values) => updateM.mutate({ id: edit.productId, values })}
             />
@@ -353,7 +350,7 @@ function EditProductForm({
       name: product.name,
       price: product.price,
       stockQty: product.stockQty,
-      categoryId: product.categoryId,
+      categoryId: String(product.categoryId),
     },
   })
 
@@ -379,9 +376,9 @@ function EditProductForm({
           control={form.control}
           name="categoryId"
           render={({ field }) => (
-            <Select value={field.value || undefined} onValueChange={(v) => field.onChange(v)}>
+            <Select value={field.value} onValueChange={field.onChange}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -404,4 +401,11 @@ function EditProductForm({
       </DialogFooter>
     </form>
   )
+}
+
+function stockBadge(stockQty: number, lowStockThreshold: number) {
+  if (stockQty === 0) return <Badge variant="destructive">Out</Badge>
+  if (stockQty < STOCK_THRESHOLDS.critical) return <Badge variant="destructive">Critical</Badge>
+  if (stockQty < lowStockThreshold) return <Badge variant="warning">Low</Badge>
+  return <Badge variant="success">Healthy</Badge>
 }

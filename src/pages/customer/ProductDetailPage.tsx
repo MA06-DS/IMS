@@ -13,11 +13,13 @@ import { Badge } from '@/components/ui/badge'
 import { RecommendationCarousel } from '@/components/shared/RecommendationCarousel'
 import { formatCurrency } from '@/utils/format'
 import { STOCK_THRESHOLDS } from '@/utils/constants'
+import { useLowStockThreshold } from '@/utils/settings'
 
 export default function CustomerProductDetailPage() {
   const { id } = useParams()
   const addItem = cartStore((s) => s.addItem)
   const [qty, setQty] = useState(1)
+  const lowStockThreshold = useLowStockThreshold()
 
   const product = useQuery({
     queryKey: ['products', id],
@@ -42,7 +44,7 @@ export default function CustomerProductDetailPage() {
 
   const p = product.data
   const out = p ? p.stockQty === 0 : false
-  const low = p ? p.stockQty > 0 && p.stockQty < STOCK_THRESHOLDS.low : false
+  const low = p ? p.stockQty > 0 && p.stockQty < lowStockThreshold : false
 
   const maxQty = useMemo(() => (p ? Math.max(1, Math.min(25, p.stockQty || 1)) : 1), [p])
 

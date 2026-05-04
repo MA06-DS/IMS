@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    phone VARCHAR(20),
+    phone VARCHAR(11),
     role VARCHAR(30) DEFAULT 'ADMIN',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active TINYINT (1) DEFAULT 1
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS customer_accounts (
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    phone VARCHAR(20),
+    phone VARCHAR(11),
     address VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active TINYINT (1) DEFAULT 1

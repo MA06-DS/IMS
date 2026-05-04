@@ -24,7 +24,7 @@ const createSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
-  phone: z.string().min(7),
+  phone: z.string().length(11, 'Phone must be 11 digits'),
   password: z.string().min(8),
   role: z.enum(ADMIN_ROLES),
 })
@@ -109,7 +109,8 @@ export default function AdminAdminsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Phone</Label>
-                    <Input {...form.register('phone')} />
+                    <Input maxLength={11} {...form.register('phone')} />
+                    {form.formState.errors.phone && <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Role</Label>

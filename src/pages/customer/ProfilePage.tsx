@@ -18,7 +18,7 @@ const schema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
-  phone: z.string().min(7),
+  phone: z.string().length(11, 'Phone must be 11 digits'),
   address: z.string().min(5),
 })
 type FormValues = z.infer<typeof schema>
@@ -79,7 +79,8 @@ export default function CustomerProfilePage() {
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>
-              <Input {...form.register('phone')} />
+              <Input maxLength={11} {...form.register('phone')} />
+              {form.formState.errors.phone && <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>}
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Address</Label>

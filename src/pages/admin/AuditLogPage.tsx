@@ -51,7 +51,7 @@ export default function AdminAuditLogPage() {
         rowId={(r) => `${r.adminId}-${r.productId}-${r.actionDatetime}`}
         columns={[
           { key: 'admin', header: 'Admin', cell: (r) => <span className="font-medium">{r.adminName ?? r.adminId}</span> },
-          { key: 'product', header: 'Product', cell: (r) => <span className="text-muted">{r.productName ?? ''}</span> },
+          { key: 'product', header: 'Product', cell: (r) => <span className="font-mono text-xs text-muted">{r.productId}</span> },
           { key: 'action', header: 'Action', cell: (r) => <span className="font-medium">{r.action}</span> },
           { key: 'time', header: 'Timestamp', cell: (r) => <span className="text-muted">{formatDateTime(r.actionDatetime)}</span> },
         ]}

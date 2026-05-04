@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { db } from '@/mocks/db'
 import { includesText, paginate, parseListParams } from '@/mocks/utils'
 import { STOCK_THRESHOLDS } from '@/utils/constants'
+import { getAdminSettings } from '@/utils/settings'
 import type { AppRole, AuthSession } from '@/types/auth'
 import type { OrderStatus, Product } from '@/types/entities'
 
@@ -148,12 +149,13 @@ export const handlers = [
     const { page, limit, search, sortBy, order } = parseListParams(url)
     const categoryId = url.searchParams.get('categoryId') ?? undefined
     const stock = url.searchParams.get('stock') as any
+    const lowStockThreshold = getAdminSettings().lowStockThreshold
 
     let all = [...db.products].map((p) => ({ ...p, category: db.categories.find((c) => c.categoryId === p.categoryId) }))
     if (categoryId) all = all.filter((p) => p.categoryId === categoryId)
     if (stock === 'out_of_stock') all = all.filter((p) => p.stockQty === 0)
-    if (stock === 'low_stock') all = all.filter((p) => p.stockQty > 0 && p.stockQty < STOCK_THRESHOLDS.low)
-    if (stock === 'in_stock') all = all.filter((p) => p.stockQty >= STOCK_THRESHOLDS.low)
+    if (stock === 'low_stock') all = all.filter((p) => p.stockQty > 0 && p.stockQty < lowStockThreshold)
+    if (stock === 'in_stock') all = all.filter((p) => p.stockQty >= lowStockThreshold)
 
     all = all.filter((p) => includesText(p.name, search) || includesText(p.productId, search))
 
@@ -376,7 +378,8 @@ export const handlers = [
 
   // Analytics (realistic-enough aggregates over mock db)
   http.get('/analytics/low-stock', () => {
-    const low = db.products.filter((p) => p.stockQty > 0 && p.stockQty < STOCK_THRESHOLDS.low).map((p) => p.productId)
+    const lowStockThreshold = getAdminSettings().lowStockThreshold
+    const low = db.products.filter((p) => p.stockQty > 0 && p.stockQty < lowStockThreshold).map((p) => p.productId)
     const critical = db.products.filter((p) => p.stockQty > 0 && p.stockQty < STOCK_THRESHOLDS.critical).map((p) => p.productId)
     const out = db.products.filter((p) => p.stockQty === 0).map((p) => p.productId)
     return json([...new Set([...critical, ...low, ...out])])

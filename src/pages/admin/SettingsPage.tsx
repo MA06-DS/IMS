@@ -5,24 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-
-const KEY = 'iims-settings'
-
-type Settings = {
-  lowStockThreshold: number
-  currency: string
-  pageSize: number
-}
-
-const defaults: Settings = { lowStockThreshold: 15, currency: 'USD', pageSize: 10 }
+import { defaultAdminSettings, saveAdminSettings, type AdminSettings } from '@/utils/settings'
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<Settings>(() => {
+  const [settings, setSettings] = useState<AdminSettings>(() => {
     try {
-      const raw = localStorage.getItem(KEY)
-      return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<Settings>) } : defaults
+      const raw = localStorage.getItem('iims-settings')
+      return raw ? { ...defaultAdminSettings, ...(JSON.parse(raw) as Partial<AdminSettings>) } : defaultAdminSettings
     } catch {
-      return defaults
+      return defaultAdminSettings
     }
   })
 
@@ -58,7 +49,7 @@ export default function AdminSettingsPage() {
             </div>
             <Button
               onClick={() => {
-                localStorage.setItem(KEY, JSON.stringify(settings))
+                saveAdminSettings(settings)
                 toast.success('Settings saved')
               }}
             >

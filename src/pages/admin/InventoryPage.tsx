@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { STOCK_THRESHOLDS } from '@/utils/constants'
+import { useLowStockThreshold } from '@/utils/settings'
 
 function downloadJson(filename: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -26,6 +27,7 @@ export default function AdminInventoryPage() {
   const qc = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const lowStockThreshold = useLowStockThreshold()
 
   const products = useQuery({
     queryKey: ['products', { page, search }],
@@ -50,10 +52,10 @@ export default function AdminInventoryPage() {
     const rows = all.data?.data ?? []
     const out = rows.filter((p) => p.stockQty === 0).length
     const critical = rows.filter((p) => p.stockQty > 0 && p.stockQty < STOCK_THRESHOLDS.critical).length
-    const low = rows.filter((p) => p.stockQty >= STOCK_THRESHOLDS.critical && p.stockQty < STOCK_THRESHOLDS.low).length
-    const healthy = rows.filter((p) => p.stockQty >= STOCK_THRESHOLDS.low).length
+    const low = rows.filter((p) => p.stockQty >= STOCK_THRESHOLDS.critical && p.stockQty < lowStockThreshold).length
+    const healthy = rows.filter((p) => p.stockQty >= lowStockThreshold).length
     return { total: rows.length, out, critical, low, healthy }
-  }, [all.data])
+  }, [all.data, lowStockThreshold])
 
   return (
     <div className="space-y-6">
@@ -97,7 +99,7 @@ export default function AdminInventoryPage() {
               const badge =
                 r.stockQty === 0 ? <Badge variant="destructive">Out</Badge> :
                 r.stockQty < STOCK_THRESHOLDS.critical ? <Badge variant="destructive">Critical</Badge> :
-                r.stockQty < STOCK_THRESHOLDS.low ? <Badge variant="warning">Low</Badge> :
+                r.stockQty < lowStockThreshold ? <Badge variant="warning">Low</Badge> :
                 <Badge variant="success">Healthy</Badge>
               return (
                 <div className="min-w-[180px]">
@@ -110,7 +112,7 @@ export default function AdminInventoryPage() {
                       className={
                         r.stockQty === 0
                           ? 'h-full bg-red-soft'
-                          : r.stockQty < STOCK_THRESHOLDS.low
+                          : r.stockQty < lowStockThreshold
                             ? 'h-full bg-amber-soft'
                             : 'h-full bg-brand'
                       }

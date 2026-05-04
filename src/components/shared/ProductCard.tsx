@@ -8,11 +8,13 @@ import { formatCurrency } from '@/utils/format'
 import { STOCK_THRESHOLDS } from '@/utils/constants'
 import { cartStore } from '@/store/cartStore'
 import { toast } from 'sonner'
+import { useLowStockThreshold } from '@/utils/settings'
 
 export function ProductCard({ product }: { product: Product }) {
   const addItem = cartStore((s) => s.addItem)
+  const lowStockThreshold = useLowStockThreshold()
   const out = product.stockQty === 0
-  const low = product.stockQty > 0 && product.stockQty < STOCK_THRESHOLDS.low
+  const low = product.stockQty > 0 && product.stockQty < lowStockThreshold
 
   return (
     <Card className="group overflow-hidden">

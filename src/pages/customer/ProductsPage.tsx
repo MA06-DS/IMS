@@ -40,7 +40,7 @@ export default function CustomerProductsPage() {
   const totalPages = products.data?.totalPages ?? 1
 
   const categoryOptions = useMemo(
-    () => [{ id: 'all', name: 'All categories' }, ...(categories.data?.data ?? []).map((c) => ({ id: c.categoryId, name: c.categoryName }))],
+    () => [{ id: 'all', name: 'All categories' }, ...(categories.data?.data ?? []).map((c) => ({ id: String(c.categoryId), name: c.categoryName }))],
     [categories.data],
   )
 
