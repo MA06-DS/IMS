@@ -14,7 +14,7 @@ const baseNav = [
   { to: '/admin/customers', label: 'Customers', icon: Users },
   { to: '/admin/analytics', label: 'Analytics', icon: ChartLine, superAdminOnly: true },
   { to: '/admin/inventory', label: 'Inventory', icon: Package },
-  { to: '/admin/audit-log', label: 'Audit Log', icon: Shield },
+  { to: '/admin/audit-log', label: 'Audit Log', icon: Shield, superAdminOnly: true },
   { to: '/admin/admins', label: 'Admins', icon: Users, superAdminOnly: true },
 ]
 

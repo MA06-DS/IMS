@@ -15,8 +15,8 @@ import type { AppRole } from '@/types/auth'
 import { getErrorMessage } from '@/utils/errors'
 
 const loginSchema = z.object({
-  username: z.string().min(3, 'Username is required'),
-  password: z.string().min(6, 'Password is required'),
+  username: z.string().trim().min(1, 'Username is required'),
+  password: z.string().trim().min(1, 'Password is required'),
 })
 
 type LoginFormValues = z.infer<typeof loginSchema>

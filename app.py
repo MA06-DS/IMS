@@ -8,6 +8,7 @@ from contextlib import contextmanager, closing
 from decimal import Decimal
 import re
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -235,6 +236,51 @@ def generate_username_by_formula(cursor, table, first_name, prefix):
         username = f"{base_username}{suffix}"
         suffix += 1
 
+def is_password_hash(value):
+    value = str(value or "")
+    return "$" in value and (value.startswith("pbkdf2:") or value.startswith("scrypt:") or value.startswith("argon2:"))
+
+def hash_password(password):
+    return generate_password_hash(password)
+
+def verify_password(stored_password, candidate_password):
+    if stored_password is None:
+        return False
+    stored_password = str(stored_password)
+    candidate_password = str(candidate_password or "")
+    if is_password_hash(stored_password):
+        try:
+            return check_password_hash(stored_password, candidate_password)
+        except ValueError:
+            return False
+    return stored_password == candidate_password
+
+def migrate_legacy_passwords(cursor, table_name, id_column):
+    execute_query(cursor, f"SELECT {id_column} as id, password FROM {table_name}")
+    rows = fetch_all(cursor)
+    changed = 0
+    for row in rows:
+        stored_password = row.get("password")
+        if not stored_password or is_password_hash(stored_password):
+            continue
+        execute_query(
+            cursor,
+            f"UPDATE {table_name} SET password = %s WHERE {id_column} = %s",
+            (hash_password(stored_password), row["id"]),
+        )
+        changed += 1
+    return changed
+
+def ensure_password_column_width(cursor):
+    if DB_TYPE != "mysql":
+        return
+    for table_name in ("admin_accounts", "customer_accounts"):
+        try:
+            execute_query(cursor, f"ALTER TABLE {table_name} MODIFY password VARCHAR(255) NOT NULL")
+        except Exception as e:
+            if "duplicate" not in str(e).lower() and "column" not in str(e).lower() and "exists" not in str(e).lower():
+                print(f"Warning: Could not widen {table_name}.password: {e}")
+
 import sqlite3
 
 # --- DB Configuration ---
@@ -409,11 +455,14 @@ def api_login():
         if not bool(user.get('is_active') or 0):
             return jsonify({"error": "Your account is deactivated."}), 403
 
-        query = f"SELECT * FROM {table} WHERE username = %s AND password = %s"
-        execute_query(cursor, query, (username, password))
+        query = f"SELECT * FROM {table} WHERE username = %s"
+        execute_query(cursor, query, (username,))
         user = fetch_one(cursor)
         
         if not user:
+            return jsonify({"error": "Invalid password"}), 401
+
+        if not verify_password(user.get('password'), password):
             return jsonify({"error": "Invalid password"}), 401
         
         user_id = user[id_col]
@@ -466,10 +515,11 @@ def api_register():
             return jsonify({"error": "Email already exists"}), 400
 
         username = generate_username_by_formula(cursor, table, first_name, prefix)
+        password_hash = hash_password(password)
         
         execute_query(cursor, 
             "INSERT INTO customer_accounts (username, password, first_name, last_name, email, phone, address) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (username, password, first_name, last_name, email, phone, address)
+            (username, password_hash, first_name, last_name, email, phone, address)
         )
         
         conn.commit()
@@ -532,6 +582,17 @@ def get_products():
     if category_id:
         query += " AND p.category_id = %s"
         args.append(category_id)
+
+    sort_by = request.args.get('sortBy')
+    sort_order = (request.args.get('order') or 'asc').lower()
+    sort_map = {
+        'name': 'p.name',
+        'price': 'p.price',
+        'stockQty': 'p.stock',
+    }
+    if sort_by in sort_map:
+        direction = 'DESC' if sort_order == 'desc' else 'ASC'
+        query += f" ORDER BY {sort_map[sort_by]} {direction}"
 
     # Normalize fields for frontend (productId, stockQty)
     res = paginate(query, request.args, args)
@@ -1190,13 +1251,14 @@ def create_admin():
         cursor = conn.cursor()
         username = generate_username_by_formula(cursor, "admin_accounts", first_name, "ADM")
         normalized_role = normalize_admin_role(role)
+        password_hash = hash_password(password)
         query = "INSERT INTO admin_accounts (username, password, first_name, last_name, email, phone, role) VALUES (%s, %s, %s, %s, %s, %s, %s)"
         execute_query(
             cursor,
             query,
             (
                 username,
-                password,
+                password_hash,
                 first_name,
                 last_name,
                 email,
@@ -1397,12 +1459,21 @@ def get_order_detail(id):
 @app.put("/api/orders/<id>")
 def update_order(id):
     data = request.get_json() or {}
+    auth = get_auth_payload()
+    current_admin_username = auth.get('username') if auth else None
     updates = []
     values = []
 
     if 'status' in data:
+        normalized_status = normalize_order_status(data['status'])
         updates.append("status=%s")
-        values.append(normalize_order_status(data['status']))
+        values.append(normalized_status)
+        if normalized_status == 'pending':
+            updates.append("processed_by=%s")
+            values.append(None)
+        elif 'processedBy' not in data and current_admin_username:
+            updates.append("processed_by=%s")
+            values.append(current_admin_username)
     if 'processedBy' in data:
         with db_connection() as conn:
             admin_cursor = conn.cursor()
@@ -1449,10 +1520,20 @@ def update_order(id):
 @app.patch("/api/orders/<id>/status")
 def patch_order_status(id):
     data = request.get_json()
+    auth = get_auth_payload()
+    current_admin_username = auth.get('username') if auth else None
+    normalized_status = normalize_order_status(data.get('status'))
     with db_connection() as conn:
         cursor = conn.cursor()
-        query = "UPDATE orders SET status=%s WHERE order_id=%s"
-        execute_query(cursor, query, (normalize_order_status(data.get('status')), id))
+        if normalized_status == 'pending':
+            query = "UPDATE orders SET status=%s, processed_by=NULL WHERE order_id=%s"
+            execute_query(cursor, query, (normalized_status, id))
+        elif current_admin_username:
+            query = "UPDATE orders SET status=%s, processed_by=%s WHERE order_id=%s"
+            execute_query(cursor, query, (normalized_status, current_admin_username, id))
+        else:
+            query = "UPDATE orders SET status=%s WHERE order_id=%s"
+            execute_query(cursor, query, (normalized_status, id))
         conn.commit()
         return jsonify({"ok": True})
 
@@ -1580,14 +1661,19 @@ def init_db():
                     for name, desc in categories_data:
                         execute_query(cursor, "INSERT INTO categories (name, description) VALUES (%s, %s)", (name, desc))
                     conn.commit()
+
+                # Make sure password columns can safely store hashed passwords.
+                ensure_password_column_width(cursor)
+                conn.commit()
                 
                 # Seed super admin if not exists
                 execute_query(cursor, "SELECT COUNT(*) as count FROM admin_accounts WHERE email = %s", ("superadmin@ims.com",))
                 count = fetch_one(cursor)
                 if count and count['count'] == 0:
                     print("Seeding super admin...")
+                    seed_password = hash_password("admin123")
                     execute_query(cursor, "INSERT INTO admin_accounts (username, password, first_name, last_name, email, role) VALUES (%s, %s, %s, %s, %s, %s)", 
-                                  ("superadmin", "admin123", "Super", "Admin", "superadmin@ims.com", "SUPER_ADMIN"))
+                                  ("superadmin", seed_password, "Super", "Admin", "superadmin@ims.com", "SUPER_ADMIN"))
                     conn.commit()
                 
                 # Seed products if empty
@@ -1643,11 +1729,18 @@ def init_db():
                 valid_super = fetch_one(cursor)
                 if not valid_super:
                     print("Seeding canonical super admin account...")
+                    seed_password = hash_password(SUPER_ADMIN_PASSWORD)
                     execute_query(
                         cursor,
                         "INSERT INTO admin_accounts (username, password, first_name, last_name, email, role) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (SUPER_ADMIN_USERNAME, SUPER_ADMIN_PASSWORD, "Super", "Admin", SUPER_ADMIN_EMAIL, "SUPER_ADMIN")
+                        (SUPER_ADMIN_USERNAME, seed_password, "Super", "Admin", SUPER_ADMIN_EMAIL, "SUPER_ADMIN")
                     )
+
+                # Migrate any legacy plaintext passwords that already exist in the tables.
+                admin_migrated = migrate_legacy_passwords(cursor, "admin_accounts", "admin_id")
+                customer_migrated = migrate_legacy_passwords(cursor, "customer_accounts", "customer_id")
+                if admin_migrated or customer_migrated:
+                    print(f"Migrated plaintext passwords: admin_accounts={admin_migrated}, customer_accounts={customer_migrated}")
 
                 conn.commit()
 

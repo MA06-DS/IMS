@@ -15,7 +15,7 @@ USE ims;
 CREATE TABLE IF NOT EXISTS admin_accounts (
     admin_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE,
-    password VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS admin_accounts (
 CREATE TABLE IF NOT EXISTS customer_accounts (
     customer_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE,
-    password VARCHAR(100) NOT NULL,
+    password VARCHAR(255) NOT NULL,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
@@ -85,15 +85,3 @@ CREATE TABLE IF NOT EXISTS admin_products (
     FOREIGN KEY (admin_username) REFERENCES admin_accounts (username),
     FOREIGN KEY (product_id) REFERENCES products (product_id)
 );
-
-ALTER TABLE admin_accounts AUTO_INCREMENT = 1;
-
-ALTER TABLE customer_accounts AUTO_INCREMENT = 1;
-
-ALTER TABLE categories AUTO_INCREMENT = 1;
-
-ALTER TABLE products AUTO_INCREMENT = 101;
-
-ALTER TABLE orders AUTO_INCREMENT = 1;
-
--- Triggers removed as username generation is handled by the application layer.

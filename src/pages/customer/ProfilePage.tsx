@@ -15,11 +15,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { getErrorMessage } from '@/utils/errors'
 
 const schema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().length(11, 'Phone must be 11 digits'),
-  address: z.string().min(5),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email'),
+  phone: z.string().regex(/^\d{11}$/, 'Phone number must be 11 digits and contain only numbers'),
+  address: z.string().min(5, 'Address is required'),
 })
 type FormValues = z.infer<typeof schema>
 
@@ -68,23 +68,27 @@ export default function CustomerProfilePage() {
             <div className="space-y-2">
               <Label>First name</Label>
               <Input {...form.register('firstName')} />
+              {form.formState.errors.firstName && <p className="text-sm text-destructive">{form.formState.errors.firstName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>Last name</Label>
               <Input {...form.register('lastName')} />
+              {form.formState.errors.lastName && <p className="text-sm text-destructive">{form.formState.errors.lastName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>Email</Label>
               <Input type="email" {...form.register('email')} />
+              {form.formState.errors.email && <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>}
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>
-              <Input maxLength={11} {...form.register('phone')} />
+              <Input inputMode="numeric" maxLength={11} {...form.register('phone')} />
               {form.formState.errors.phone && <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>}
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Address</Label>
               <Textarea {...form.register('address')} />
+              {form.formState.errors.address && <p className="text-sm text-destructive">{form.formState.errors.address.message}</p>}
             </div>
             <div className="sm:col-span-2">
               <Button className="w-full" type="submit" disabled={!form.formState.isValid || mutation.isPending}>

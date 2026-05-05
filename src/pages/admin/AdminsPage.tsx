@@ -21,12 +21,12 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { formatDateTime } from '@/utils/format'
 
 const createSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().length(11, 'Phone must be 11 digits'),
-  password: z.string().min(8),
-  role: z.enum(ADMIN_ROLES),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email'),
+  phone: z.string().regex(/^\d{11}$/, 'Phone number must be 11 digits and contain only numbers'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(ADMIN_ROLES, { message: 'Role is required' }),
 })
 type CreateValues = z.infer<typeof createSchema>
 
@@ -98,19 +98,22 @@ export default function AdminAdminsPage() {
                   <div className="space-y-2">
                     <Label>First name</Label>
                     <Input {...form.register('firstName')} />
+                    {form.formState.errors.firstName && <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Last name</Label>
                     <Input {...form.register('lastName')} />
+                    {form.formState.errors.lastName && <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>}
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Email</Label>
                     <Input type="email" {...form.register('email')} />
+                    {form.formState.errors.email && <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Phone</Label>
-                    <Input maxLength={11} {...form.register('phone')} />
-                    {form.formState.errors.phone && <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>}
+                    <Input inputMode="numeric" maxLength={11} {...form.register('phone')} />
+                    {form.formState.errors.phone && <p className="text-sm text-red-500">{form.formState.errors.phone.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Role</Label>
@@ -129,10 +132,12 @@ export default function AdminAdminsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {form.formState.errors.role && <p className="text-sm text-red-500">{form.formState.errors.role.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Password</Label>
                     <Input type="password" {...form.register('password')} />
+                    {form.formState.errors.password && <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>}
                   </div>
                   <DialogFooter className="sm:col-span-2">
                     <Button type="submit" disabled={!form.formState.isValid || createM.isPending}>

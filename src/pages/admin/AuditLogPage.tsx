@@ -6,10 +6,28 @@ import { DataTable } from '@/components/shared/DataTable'
 import { Pagination } from '@/components/shared/Pagination'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { authStore } from '@/store/authStore'
 import { formatDateTime } from '@/utils/format'
 import type { AdminProductAction } from '@/types/entities'
 
 export default function AdminAuditLogPage() {
+  const adminRole = authStore((s) => s.adminRole)
+  const isSuperAdmin =
+    adminRole === 'SUPER_ADMIN' ||
+    adminRole?.toLowerCase() === 'super admin' ||
+    adminRole?.toLowerCase() === 'super_admin'
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-muted">Access Denied</h2>
+          <p className="text-muted">You have no rights for this page.</p>
+        </div>
+      </div>
+    )
+  }
+
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [action, setAction] = useState<AdminProductAction | 'all'>('all')

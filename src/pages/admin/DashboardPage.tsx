@@ -334,8 +334,6 @@ export default function AdminDashboardPage() {
                 innerRadius={55}
                 outerRadius={85}
                 paddingAngle={3}
-                label={renderPieLabel}
-                labelLine={false}
               >
                 {(categoryPerf.data ?? []).map((_, idx) => (
                   <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} stroke="transparent" />

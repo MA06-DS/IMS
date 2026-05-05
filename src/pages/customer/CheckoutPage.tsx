@@ -91,9 +91,9 @@ export default function CheckoutPage() {
               <div className="space-y-2">
                 <Label>Address</Label>
                 <Input {...form.register('address')} />
-                {form.formState.errors.address ? (
-                  <div className="text-sm text-red">{form.formState.errors.address.message}</div>
-                ) : null}
+                {form.formState.errors.address && (
+                  <div className="text-sm text-destructive">{form.formState.errors.address.message}</div>
+                )}
               </div>
               <Button className="w-full" type="submit" disabled={!form.formState.isValid || mutation.isPending}>
                 {mutation.isPending ? 'Placing…' : 'Place order'}

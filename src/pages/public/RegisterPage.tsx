@@ -19,8 +19,8 @@ const customerSchema = z.object({
   firstName: z.string().min(1, 'Required'),
   lastName: z.string().min(1, 'Required'),
   email: z.string().email('Invalid email'),
-  phone: z.string().length(11, 'Phone must be 11 digits'),
-  password: z.string().min(8, 'Min 8 characters'),
+  phone: z.string().regex(/^\d{11}$/, 'Phone number must be 11 digits and contain only numbers'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string().min(1, 'Required'),
   address: z.string().min(5, 'Address required'),
 }).refine((d) => d.password === d.confirmPassword, {
@@ -116,7 +116,7 @@ function CustomerRegisterForm() {
 
       <div className="space-y-2">
         <Label htmlFor="c-phone">Phone</Label>
-        <Input id="c-phone" autoComplete="tel" placeholder="+1 234 567 8900" maxLength={11} {...form.register('phone')} />
+        <Input id="c-phone" autoComplete="tel" inputMode="numeric" placeholder="12345678901" maxLength={11} {...form.register('phone')} />
         {errors.phone && <p className="text-sm text-red-500">{errors.phone.message}</p>}
       </div>
 

@@ -29,11 +29,10 @@ function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
   URL.revokeObjectURL(url)
 }
 
-// All 6 statuses — must match ORDER_STATUSES in constants.ts exactly
+// All 5 statuses — must match ORDER_STATUSES in constants.ts exactly
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'pending',        label: 'Pending' },
   { value: 'processing',     label: 'Processing' },
-  { value: 'ready_to_ship',  label: 'Ready to Ship' },
   { value: 'shipped',        label: 'Shipped' },
   { value: 'delivered',      label: 'Delivered' },
   { value: 'cancelled',      label: 'Cancelled' },
